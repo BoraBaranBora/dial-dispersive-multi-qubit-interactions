@@ -1,0 +1,72 @@
+﻿{
+  "schema_version": 1,
+  "profile": "publication",
+  "purpose": "Frozen final numerical protocol used to generate publication evidence.",
+  "scientific_evidence": true,
+  "outputs": {
+    "data_dir": "results/publication/data",
+    "figure_dir": "results/publication/figures"
+  },
+  "stages": {
+    "01_response_geometry_measures": {
+      "enabled": true,
+      "args": {
+        "num_rho": 101,
+        "num_sigma": 101,
+        "num_grid": 201,
+        "candidate_pool": 151,
+        "span": 1.35,
+        "min_detuning": 0.04,
+        "progress_every": 25,
+        "force": true
+      }
+    },
+    "02_response_geometry_representatives": {
+      "enabled": true,
+      "args": {
+        "edge_margin_fraction": 0.1,
+        "min_geometry_distance_fraction": 0.12,
+        "cmap": "RdYlGn",
+        "balance_percentiles": [
+          10.0,
+          50.0,
+          90.0
+        ]
+      }
+    },
+    "03_validation_case_design": {
+      "enabled": true,
+      "args": {
+        "targets": [
+          "Z3",
+          "Z2",
+          "Z2Z3",
+          "Z1",
+          "Z1Z3",
+          "Z1Z2",
+          "Z1Z2Z3"
+        ],
+        "num_grid": 401,
+        "candidate_pool": 151,
+        "max_tones": 8,
+        "span": 1.35,
+        "min_detuning": 0.04,
+        "min_tone_spacing": 0.04,
+        "target_register_phase": 0.7853981633974483,
+        "score_ceiling": 4.0
+      }
+    },
+    "04_full_rwa_validation": {
+      "enabled": true,
+      "args": {
+        "case_ids": null,
+        "drive_scale": 0.0005,
+        "eta": 0.0,
+        "eta_seed": null,
+        "num_samples": 501,
+        "steps_per_period": 24,
+        "max_steps": 200000
+      }
+    }
+  }
+}

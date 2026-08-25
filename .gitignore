@@ -1,0 +1,32 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Numba
+*.nbc
+*.nbi
+
+# LaTeX build products
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Local/editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.bak
+*.tmp
+*~
