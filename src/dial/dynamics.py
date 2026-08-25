@@ -14,6 +14,17 @@ DIM_REG = 2**N_QUBITS
 DIM_TOTAL = 2 * DIM_REG
 
 
+def idx(
+    e_state: int,
+    alpha: int,
+) -> int:
+    """Index |e_state, alpha> in the full mediator-register basis."""
+    return (
+        int(e_state) * DIM_REG
+        + int(alpha)
+    )
+
+
 @njit(cache=True)
 def _derivative(
     U,

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "source": "results\\publication\\smoke_transient_input.json",
+  "definition": "Maximum over integration-grid times and computational register inputs of |U_alpha(t)[1,0]|^2.",
+  "cases": {
+    "n3_realization_001": {
+      "status": "complete",
+      "n": 3,
+      "source_index": 1,
+      "max_mediator_excitation": 0.012942894187455475,
+      "terminal_max_flip": 0.007895744359997507,
+      "F_check": 0.9973789895309816
+    }
+  }
+}
