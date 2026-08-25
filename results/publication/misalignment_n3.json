@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Fixed-control robustness of current n=3 DIAL benchmark controls to excited-manifold basis misalignment.",
-  "source": "C:\\Users\\borab\\Desktop\\Desktop\\Projects\\FZ\\dispersive-phase-rate-control\\results\\benchmarks\\main_direct_inversion_fullpool_dmin045_n2_n5_N100.json",
+  "source": "results/publication/main_benchmark.json",
   "misalignment_model": "R_y(eta) tensor-product rotation of the excited-manifold register basis; transition frequencies held fixed.",
   "n": 3,
   "etas": [

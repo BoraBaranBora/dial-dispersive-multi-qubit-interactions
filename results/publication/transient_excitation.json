@@ -2,7 +2,7 @@
   "schema_version": 1,
   "config": {
     "kind": "main_direct_inversion_transient_excitation",
-    "source_benchmark": "results\\benchmarks\\main_direct_inversion_fullpool_dmin045_n2_n5_N100.json",
+    "source_benchmark": "results/publication/main_benchmark.json",
     "n_min": 2,
     "n_max": 5,
     "fidelity_tolerance": 1e-08,

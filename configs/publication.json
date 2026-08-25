@@ -32,10 +32,28 @@
       "map_only": false
     },
     "transient_excitation": {
-      "source": "results/publication/main_benchmark.json",
-      "definition": "Maximum transient mediator excitation over the integration grid and register inputs."
+      "kind": "main_direct_inversion_transient_excitation",
+      "source_benchmark": "results/publication/main_benchmark.json",
+      "n_min": 2,
+      "n_max": 5,
+      "fidelity_tolerance": 1e-08,
+      "definition": "max over RK4 grid times and register configurations of |U_alpha(t)[1,0]|^2"
     },
-    "misalignment_n3": {}
+    "misalignment_n3": {
+      "description": "Fixed-control robustness of current n=3 DIAL benchmark controls to excited-manifold basis misalignment.",
+      "misalignment_model": "R_y(eta) tensor-product rotation of the excited-manifold register basis; transition frequencies held fixed.",
+      "n": 3,
+      "etas": [
+        0.0,
+        0.0872665,
+        0.174533,
+        0.261799,
+        0.305433
+      ],
+      "num_samples": 501,
+      "steps_per_period": 12,
+      "max_steps": 500000
+    }
   },
   "figure_generation": {
     "command": "python scripts/reproduce_figures.py",
