@@ -1,72 +1,54 @@
-﻿{
-  "schema_version": 1,
+{
+  "schema_version": 2,
   "profile": "publication",
-  "purpose": "Frozen final numerical protocol used to generate publication evidence.",
+  "purpose": "Numerical protocol and checked-in data used for the DIAL publication figures.",
   "scientific_evidence": true,
-  "outputs": {
-    "data_dir": "results/publication/data",
-    "figure_dir": "results/publication/figures"
+  "datasets": {
+    "main_benchmark": "results/publication/main_benchmark.json",
+    "transient_excitation": "results/publication/transient_excitation.json",
+    "misalignment_n3": "results/publication/misalignment_n3.json"
   },
-  "stages": {
-    "01_response_geometry_measures": {
-      "enabled": true,
-      "args": {
-        "num_rho": 101,
-        "num_sigma": 101,
-        "num_grid": 201,
-        "candidate_pool": 151,
-        "span": 1.35,
-        "min_detuning": 0.04,
-        "progress_every": 25,
-        "force": true
-      }
+  "protocols": {
+    "main_benchmark": {
+      "benchmark": "main_direct_inversion",
+      "ensemble_selection": "first N prespecified realizations; no residual or fidelity filtering",
+      "n_min": 2,
+      "n_max": 5,
+      "n_systems": 100,
+      "target_phase": 0.7853981633974483,
+      "d_min_factor": 0.45,
+      "d_min_rule": "0.45 * minimum_transition_spacing",
+      "chi_tone_spacing": 0.075,
+      "r_disp": 0.1,
+      "ratio_max": 10.0,
+      "seed": 20260818,
+      "sobol_power": 12,
+      "span": 1.35,
+      "grid_points": 6401,
+      "candidate_pool_mode": "full_admissible_grid",
+      "omega_hw_max": 1000000.0,
+      "steps_per_period": 12,
+      "max_steps": 120000000,
+      "map_only": false
     },
-    "02_response_geometry_representatives": {
-      "enabled": true,
-      "args": {
-        "edge_margin_fraction": 0.1,
-        "min_geometry_distance_fraction": 0.12,
-        "cmap": "RdYlGn",
-        "balance_percentiles": [
-          10.0,
-          50.0,
-          90.0
-        ]
-      }
+    "transient_excitation": {
+      "source": "results/publication/main_benchmark.json",
+      "definition": "Maximum transient mediator excitation over the integration grid and register inputs."
     },
-    "03_validation_case_design": {
-      "enabled": true,
-      "args": {
-        "targets": [
-          "Z3",
-          "Z2",
-          "Z2Z3",
-          "Z1",
-          "Z1Z3",
-          "Z1Z2",
-          "Z1Z2Z3"
-        ],
-        "num_grid": 401,
-        "candidate_pool": 151,
-        "max_tones": 8,
-        "span": 1.35,
-        "min_detuning": 0.04,
-        "min_tone_spacing": 0.04,
-        "target_register_phase": 0.7853981633974483,
-        "score_ceiling": 4.0
-      }
-    },
-    "04_full_rwa_validation": {
-      "enabled": true,
-      "args": {
-        "case_ids": null,
-        "drive_scale": 0.0005,
-        "eta": 0.0,
-        "eta_seed": null,
-        "num_samples": 501,
-        "steps_per_period": 24,
-        "max_steps": 200000
-      }
-    }
+    "misalignment_n3": {}
+  },
+  "figure_generation": {
+    "command": "python scripts/reproduce_figures.py",
+    "outputs": [
+      "manuscript/figures/main_direct_inversion_scaling.pdf",
+      "manuscript/figures/benchmark_ensemble_n3_normalized_spectral_space.pdf",
+      "manuscript/figures/scaling_relative_minimum_spacing.pdf",
+      "manuscript/figures/dial_misalignment_audit.pdf"
+    ]
+  },
+  "optional_numerical_regeneration": {
+    "main_benchmark": "python scripts/run_main_benchmark.py",
+    "transient_excitation": "python scripts/run_transient_excitation_audit.py",
+    "misalignment_n3": "python scripts/run_misalignment_audit.py"
   }
 }

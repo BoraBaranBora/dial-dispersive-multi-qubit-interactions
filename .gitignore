@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -30,3 +30,5 @@ Thumbs.db
 *.bak
 *.tmp
 *~
+manuscript/main.pdf
+manuscript/mainNotes.bib
