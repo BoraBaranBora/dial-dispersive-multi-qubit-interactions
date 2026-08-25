@@ -117,12 +117,12 @@ control = design_control(
 Here `0.01` means an approximate 1% excitation scale. DIAL converts this
 using the isolated detuned two-level estimate
 
-\[
+$$
 P_{\mathrm{med}}^{\mathrm{approx}}
 =
 \frac{r_{\mathrm{disp}}^2}
      {1+r_{\mathrm{disp}}^2}.
-\]
+$$
 
 This is a convenient estimate for choosing the dispersive drive scale;
 it is **not** a guarantee on the maximum mediator population under the
@@ -148,13 +148,13 @@ paper implementation. The realized sign is reported by
 
 The gate time is accompanied by the dimensionless quantity
 
-\[
+$$
 \frac{T_{\mathrm{gate}}}
      {T_{\mathrm{Rabi}}^{\max}}
 =
 \frac{T_{\mathrm{gate}}\Omega_{\max}}
      {2\pi},
-\]
+$$
 
 which measures the gate duration in units of the fastest Rabi period
 available in the designed control.
