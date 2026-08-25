@@ -21,7 +21,7 @@ This repository has two complementary uses:
 
 - **Use Target-Aware DIAL on your own register:** provide a
   configuration-resolved mediator transition spectrum and the desired
-  Pauli-\(Z\) interaction, and obtain a dispersively admissible
+  Pauli-Z interaction, and obtain a dispersively admissible
   multi-tone control.
 - **Reproduce the paper:** use the frozen publication datasets,
   benchmark scripts, plotting workflow, and manuscript contained in
@@ -89,8 +89,7 @@ print(
 
 The dictionary keys specify which mediator transition belongs to each
 computational-basis register configuration. An array can also be supplied,
-in binary integer order \(00\ldots0, 00\ldots1,\ldots,11\ldots1\).
-
+in binary integer order $00\ldots0, 00\ldots1,\ldots,11\ldots1$.
 
 The control strength can be specified in two equivalent ways. Users who
 work directly with the dispersive approximation can set the maximum
@@ -118,12 +117,12 @@ control = design_control(
 Here `0.01` means an approximate 1% excitation scale. DIAL converts this
 using the isolated detuned two-level estimate
 
-\[
+$$
 P_{\mathrm{med}}^{\mathrm{approx}}
 =
 \frac{r_{\mathrm{disp}}^2}
      {1+r_{\mathrm{disp}}^2}.
-\]
+$$
 
 This is a convenient estimate for choosing the dispersive drive scale;
 it is **not** a guarantee on the maximum mediator population under the
@@ -139,24 +138,23 @@ reference before constructing the transfer matrix and restores it in the
 returned tones, so absolute and zero-centered spectra are equivalent.
 
 All frequencies and amplitudes must use one consistent convention and
-unit; the package does not insert or remove factors of \(2\pi\).
+unit; the package does not insert or remove factors of $2\pi$.
 
-The public solver accepts any nonidentity Pauli-\(Z\) string such as
+The public solver accepts any nonidentity Pauli-Z string such as
 `Z1`, `Z1Z3`, or `Z1Z2Z3`. The present implementation evaluates both
 signs of the target rate under nonnegative tone intensities, as in the
 paper implementation. The realized sign is reported by
 `control.target_rate`.
 
-
 The gate time is accompanied by the dimensionless quantity
 
-\[
+$$
 \frac{T_{\mathrm{gate}}}
      {T_{\mathrm{Rabi}}^{\max}}
 =
 \frac{T_{\mathrm{gate}}\Omega_{\max}}
      {2\pi},
-\]
+$$
 
 which measures the gate duration in units of the fastest Rabi period
 available in the designed control.
@@ -211,8 +209,8 @@ PNG versions are generated alongside the PDF files.
 
 : Target-Aware DIAL synthesis and full driven-dynamics validation for
   100 independently sampled register realizations at each
-  \(n=2,3,4,5\), targeting the highest-order interaction
-  \(Z_1\cdots Z_n\).
+  n=2,3,4,5, targeting the highest-order interaction
+  $Z_1\cdots Z_n$.
 
 `results/publication/transient_excitation.json`
 
@@ -221,7 +219,7 @@ PNG versions are generated alongside the PDF files.
 
 `results/publication/misalignment_n3.json`
 
-: Fixed-control \(n=3\) audit under inter-manifold register-basis mismatch.
+: Fixed-control n=3 audit under inter-manifold register-basis mismatch.
 
 The numerical protocol stored in these datasets is summarized in:
 
@@ -280,7 +278,7 @@ the aligned block propagators are generic in register size.
 The clean scientific core and publication entry points were checked
 numerically against the frozen publication implementation. The clean
 workflows reproduce the main benchmark, transient mediator-excitation
-audit, and complete \(n=3\) basis-mismatch protocol to floating-point
+audit, and complete n=3 basis-mismatch protocol to floating-point
 precision.
 
 ## Manuscript
