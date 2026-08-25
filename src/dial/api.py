@@ -1,0 +1,749 @@
+"""Public user-facing interface for Target-Aware DIAL."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+import math
+import re
+
+import numpy as np
+
+from .spectrum import (
+    candidate_tones,
+    mean_transition_spacing,
+    minimum_transition_spacing,
+)
+from .synthesis import (
+    dispersive_scale_from_unit_control,
+    downsample_candidates,
+    filter_nonzero_transfer_columns,
+    greedy_sparse_target_synthesis,
+)
+from .transfer import transfer_matrix
+
+
+@dataclass(frozen=True)
+class DIALControl:
+    """
+    Dispersive multi-tone control returned by Target-Aware DIAL.
+
+    Frequencies, amplitudes, and interaction rates use the same
+    frequency convention and units supplied by the user.
+    """
+
+    n: int
+    configurations: tuple[str, ...]
+    transition_frequencies: np.ndarray
+    reference_frequency: float
+
+    target: str
+    labels: tuple[str, ...]
+    target_index: int
+
+    tones: np.ndarray
+    amplitudes: np.ndarray
+    intensities: np.ndarray
+    rates: np.ndarray
+
+    spectral_error: float
+    relative_residual: float
+    max_dispersive_ratio: float
+
+    min_detuning: float
+    min_tone_spacing: float
+    r_disp: float
+
+    @property
+    def target_rate(self) -> float:
+        """Synthesized rate of the requested Pauli-Z interaction."""
+        return float(
+            self.rates[self.target_index]
+        )
+
+    @property
+    def rates_by_label(self) -> dict[str, float]:
+        """All synthesized nonidentity Pauli-Z interaction rates."""
+        return {
+            label: float(rate)
+            for label, rate in zip(
+                self.labels,
+                self.rates,
+            )
+        }
+
+    @property
+    def spectator_rates(self) -> dict[str, float]:
+        """Synthesized rates excluding the requested target."""
+        return {
+            label: float(rate)
+            for i, (label, rate) in enumerate(
+                zip(
+                    self.labels,
+                    self.rates,
+                )
+            )
+            if i != self.target_index
+        }
+
+    def gate_time(
+        self,
+        phase: float = math.pi / 4.0,
+    ) -> float:
+        """
+        Evolution time required to accumulate |phase| on the target.
+
+        Uses the convention
+
+            theta(T) = K_target T / 2.
+        """
+        rate = abs(self.target_rate)
+
+        if rate <= 0.0:
+            raise ZeroDivisionError(
+                "The synthesized target rate is zero."
+            )
+
+        return float(
+            2.0 * abs(phase) / rate
+        )
+
+    def phase_at_time(
+        self,
+        time: float,
+    ) -> float:
+        """Signed target phase accumulated after the supplied time."""
+        return float(
+            0.5
+            * self.target_rate
+            * float(time)
+        )
+
+
+def _infer_n(
+    count: int,
+) -> int:
+    if count < 2:
+        raise ValueError(
+            "A register spectrum must contain at least two transitions."
+        )
+
+    n = int(round(math.log2(count)))
+
+    if 2**n != count:
+        raise ValueError(
+            "A register spectrum must contain exactly 2**n "
+            "configuration-resolved transition frequencies."
+        )
+
+    return n
+
+
+def _configuration_key(
+    key,
+    *,
+    n: int,
+) -> str:
+    if isinstance(key, str):
+        value = key.strip()
+
+        if (
+            value.startswith("|")
+            and value.endswith(">")
+        ):
+            value = value[1:-1]
+
+        value = value.replace(" ", "")
+
+    elif isinstance(key, tuple):
+        value = "".join(
+            str(int(bit))
+            for bit in key
+        )
+
+    else:
+        raise TypeError(
+            "Spectrum mapping keys must be bit strings such as "
+            "'010', kets such as '|010>', or tuples such as "
+            "(0, 1, 0)."
+        )
+
+    if (
+        len(value) != n
+        or any(bit not in "01" for bit in value)
+    ):
+        raise ValueError(
+            f"Invalid {n}-spin register configuration: {key!r}"
+        )
+
+    return value
+
+
+def _coerce_spectrum(
+    spectrum,
+) -> tuple[
+    int,
+    tuple[str, ...],
+    np.ndarray,
+]:
+    count = len(spectrum)
+    n = _infer_n(count)
+
+    configurations = tuple(
+        format(i, f"0{n}b")
+        for i in range(2**n)
+    )
+
+    if isinstance(spectrum, Mapping):
+        normalized = {}
+
+        for key, value in spectrum.items():
+            config = _configuration_key(
+                key,
+                n=n,
+            )
+
+            if config in normalized:
+                raise ValueError(
+                    f"Duplicate configuration {config!r}."
+                )
+
+            normalized[config] = float(value)
+
+        missing = [
+            config
+            for config in configurations
+            if config not in normalized
+        ]
+
+        if missing:
+            raise ValueError(
+                "Spectrum is missing register configurations: "
+                + ", ".join(missing)
+            )
+
+        frequencies = np.asarray(
+            [
+                normalized[config]
+                for config in configurations
+            ],
+            dtype=float,
+        )
+
+    else:
+        frequencies = np.asarray(
+            spectrum,
+            dtype=float,
+        )
+
+        if frequencies.ndim != 1:
+            raise ValueError(
+                "transition frequencies must be one-dimensional."
+            )
+
+        if len(frequencies) != 2**n:
+            raise ValueError(
+                "Unexpected spectrum length."
+            )
+
+    if not np.all(
+        np.isfinite(frequencies)
+    ):
+        raise ValueError(
+            "All transition frequencies must be finite."
+        )
+
+    ordered = np.sort(frequencies)
+
+    if np.any(
+        np.diff(ordered) <= 0.0
+    ):
+        raise ValueError(
+            "The simple public DIAL interface requires distinct "
+            "configuration-resolved transition frequencies. "
+            "For exactly degenerate spectra, use the lower-level "
+            "dial modules directly."
+        )
+
+    return (
+        n,
+        configurations,
+        frequencies,
+    )
+
+
+def _canonical_target(
+    target,
+    *,
+    n: int,
+    labels: Sequence[str],
+) -> str:
+    labels = tuple(labels)
+
+    if isinstance(target, str):
+        compact = (
+            target
+            .replace("_", "")
+            .replace(" ", "")
+        )
+
+        if compact in labels:
+            return compact
+
+        if compact == "Z" * n:
+            full = "".join(
+                f"Z{i}"
+                for i in range(1, n + 1)
+            )
+
+            if full in labels:
+                return full
+
+        indices = [
+            int(value)
+            for value in re.findall(
+                r"Z(\d+)",
+                compact,
+            )
+        ]
+
+        reconstructed = "".join(
+            f"Z{i}"
+            for i in indices
+        )
+
+        if (
+            indices
+            and reconstructed == compact
+        ):
+            pass
+        else:
+            raise ValueError(
+                f"Could not interpret target {target!r}. "
+                "Use labels such as 'Z1', 'Z1Z3', or 'Z1Z2Z3'."
+            )
+
+    else:
+        try:
+            indices = [
+                int(i)
+                for i in target
+            ]
+        except TypeError as exc:
+            raise TypeError(
+                "target must be a Pauli-Z label or a sequence "
+                "of register-spin indices."
+            ) from exc
+
+    if not indices:
+        raise ValueError(
+            "At least one target register spin is required."
+        )
+
+    if len(set(indices)) != len(indices):
+        raise ValueError(
+            "Target register-spin indices must be unique."
+        )
+
+    if any(
+        i < 1 or i > n
+        for i in indices
+    ):
+        raise ValueError(
+            f"Target indices must lie between 1 and {n}."
+        )
+
+    canonical = "".join(
+        f"Z{i}"
+        for i in sorted(indices)
+    )
+
+    if canonical not in labels:
+        raise ValueError(
+            f"Target {canonical!r} is unavailable. "
+            f"Available targets are: {', '.join(labels)}"
+        )
+
+    return canonical
+
+
+def design_control(
+    spectrum,
+    *,
+    target,
+    r_disp: float = 0.10,
+    max_tones: int | None = None,
+    min_detuning_fraction: float = 0.45,
+    min_tone_spacing_fraction: float = 0.075,
+    span: float = 1.35,
+    grid_points: int = 6401,
+    candidate_pool: int | None = None,
+    reference_frequency: float | None = None,
+    safety: float = 1.0 - 1e-10,
+) -> DIALControl:
+    """
+    Design a Target-Aware DIAL control from a register-resolved spectrum.
+
+    Parameters
+    ----------
+    spectrum
+        Either a mapping from computational-basis register configurations
+        to mediator transition frequencies, for example
+
+            {"000": ..., "001": ..., ..., "111": ...}
+
+        or a one-dimensional array in binary integer order
+
+            000, 001, 010, ..., 111.
+
+        Absolute and relative transition frequencies are both accepted.
+
+    target
+        Desired nonidentity Pauli-Z string, for example ``"Z1Z2Z3"``
+        or ``"Z1Z3"``. A sequence such as ``(1, 3)`` is also accepted.
+
+    r_disp
+        Maximum allowed dispersive ratio
+        ``max_k |Omega_k| / d_k``.
+
+    min_detuning_fraction
+        Candidate tones are kept at least this fraction of the minimum
+        transition spacing away from every register-resolved transition.
+
+    min_tone_spacing_fraction
+        Minimum separation between selected tones, expressed as a fraction
+        of the mean transition spacing.
+
+    reference_frequency
+        Frequency reference subtracted before the DIAL calculation.
+        By default the midpoint of the supplied spectrum is used.
+        The reference is added back to the returned tone frequencies.
+
+    Notes
+    -----
+    The present Target-Aware DIAL solver evaluates both signs of the
+    requested target rate under nonnegative tone intensities and retains
+    the better-conditioned solution, matching the validated paper
+    implementation. Inspect ``control.target_rate`` for the resulting sign.
+    """
+
+    (
+        n,
+        configurations,
+        frequencies,
+    ) = _coerce_spectrum(
+        spectrum
+    )
+
+    if r_disp <= 0.0:
+        raise ValueError(
+            "r_disp must be positive."
+        )
+
+    if not (
+        0.0 < safety <= 1.0
+    ):
+        raise ValueError(
+            "safety must satisfy 0 < safety <= 1."
+        )
+
+    if min_detuning_fraction <= 0.0:
+        raise ValueError(
+            "min_detuning_fraction must be positive."
+        )
+
+    if min_tone_spacing_fraction < 0.0:
+        raise ValueError(
+            "min_tone_spacing_fraction cannot be negative."
+        )
+
+    if grid_points < 3:
+        raise ValueError(
+            "grid_points must be at least 3."
+        )
+
+    if reference_frequency is None:
+        reference_frequency = float(
+            0.5
+            * (
+                np.min(frequencies)
+                + np.max(frequencies)
+            )
+        )
+    else:
+        reference_frequency = float(
+            reference_frequency
+        )
+
+    offsets = (
+        frequencies
+        - reference_frequency
+    )
+
+    spectral_radius = float(
+        np.max(np.abs(offsets))
+    )
+
+    if spectral_radius <= 0.0:
+        raise ValueError(
+            "The supplied spectrum has zero bandwidth."
+        )
+
+    minimum_spacing = (
+        minimum_transition_spacing(
+            offsets
+        )
+    )
+
+    mean_spacing = (
+        mean_transition_spacing(
+            offsets
+        )
+    )
+
+    physical_min_detuning = float(
+        min_detuning_fraction
+        * minimum_spacing
+    )
+
+    candidate_min_detuning = float(
+        physical_min_detuning
+        / spectral_radius
+    )
+
+    min_tone_spacing = float(
+        min_tone_spacing_fraction
+        * mean_spacing
+    )
+
+    relative_tones = candidate_tones(
+        offsets,
+        num_grid=grid_points,
+        span=span,
+        min_detuning=(
+            candidate_min_detuning
+        ),
+    )
+
+    labels, G_pool = transfer_matrix(
+        offsets,
+        relative_tones,
+        n=n,
+        include_identity=False,
+    )
+
+    canonical_target = (
+        _canonical_target(
+            target,
+            n=n,
+            labels=labels,
+        )
+    )
+
+    target_index = labels.index(
+        canonical_target
+    )
+
+    relative_tones, G_pool = (
+        filter_nonzero_transfer_columns(
+            relative_tones,
+            G_pool,
+        )
+    )
+
+    if candidate_pool is None:
+        candidate_pool = grid_points
+
+    if candidate_pool <= 0:
+        raise ValueError(
+            "candidate_pool must be positive."
+        )
+
+    relative_tones, G_pool = (
+        downsample_candidates(
+            relative_tones,
+            G_pool,
+            candidate_pool=(
+                candidate_pool
+            ),
+        )
+    )
+
+    if max_tones is None:
+        max_tones = len(labels)
+
+    if max_tones <= 0:
+        raise ValueError(
+            "max_tones must be positive."
+        )
+
+    (
+        selected,
+        intensities_unit,
+        metrics,
+    ) = greedy_sparse_target_synthesis(
+        relative_tones,
+        G_pool,
+        target_index=target_index,
+        max_tones=max_tones,
+        min_tone_spacing=(
+            min_tone_spacing
+        ),
+    )
+
+    if not selected:
+        raise RuntimeError(
+            "Target-Aware DIAL selected no control tones."
+        )
+
+    selected = np.asarray(
+        selected,
+        dtype=int,
+    )
+
+    selected_tones = np.asarray(
+        relative_tones[selected],
+        dtype=float,
+    )
+
+    intensities_unit = np.asarray(
+        intensities_unit,
+        dtype=float,
+    )
+
+    active = (
+        intensities_unit > 1e-10
+    )
+
+    selected = selected[active]
+    selected_tones = (
+        selected_tones[active]
+    )
+    intensities_unit = (
+        intensities_unit[active]
+    )
+
+    if len(selected_tones) == 0:
+        raise RuntimeError(
+            "All selected DIAL tones received zero intensity."
+        )
+
+    G_selected = G_pool[
+        :,
+        selected,
+    ]
+
+    rates_unit = (
+        G_selected
+        @ intensities_unit
+    )
+
+    target_rate_unit = float(
+        rates_unit[target_index]
+    )
+
+    if abs(target_rate_unit) <= 1e-15:
+        raise RuntimeError(
+            "DIAL produced zero target interaction rate."
+        )
+
+    scaled = (
+        dispersive_scale_from_unit_control(
+            tones=selected_tones,
+            intensities_unit=(
+                intensities_unit
+            ),
+            offsets=offsets,
+            r_disp=r_disp,
+        )
+    )
+
+    drive_scale = float(
+        scaled["drive_scale"]
+        * safety
+    )
+
+    intensities = (
+        intensities_unit
+        * drive_scale
+    )
+
+    amplitudes = np.sqrt(
+        np.maximum(
+            2.0 * intensities,
+            0.0,
+        )
+    )
+
+    rates = (
+        rates_unit
+        * drive_scale
+    )
+
+    detunings = np.min(
+        np.abs(
+            selected_tones[:, None]
+            - offsets[None, :]
+        ),
+        axis=1,
+    )
+
+    dispersive_ratios = (
+        amplitudes
+        / detunings
+    )
+
+    absolute_tones = (
+        selected_tones
+        + reference_frequency
+    )
+
+    return DIALControl(
+        n=n,
+        configurations=(
+            configurations
+        ),
+        transition_frequencies=(
+            frequencies.copy()
+        ),
+        reference_frequency=(
+            reference_frequency
+        ),
+        target=canonical_target,
+        labels=tuple(labels),
+        target_index=target_index,
+        tones=np.asarray(
+            absolute_tones,
+            dtype=float,
+        ),
+        amplitudes=np.asarray(
+            amplitudes,
+            dtype=float,
+        ),
+        intensities=np.asarray(
+            intensities,
+            dtype=float,
+        ),
+        rates=np.asarray(
+            rates,
+            dtype=float,
+        ),
+        spectral_error=float(
+            metrics["epsilon_spec"]
+        ),
+        relative_residual=float(
+            metrics["relative_residual"]
+        ),
+        max_dispersive_ratio=float(
+            np.max(
+                dispersive_ratios
+            )
+        ),
+        min_detuning=(
+            physical_min_detuning
+        ),
+        min_tone_spacing=(
+            min_tone_spacing
+        ),
+        r_disp=float(r_disp),
+    )

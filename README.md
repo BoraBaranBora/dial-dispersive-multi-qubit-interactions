@@ -15,6 +15,18 @@ The accompanying manuscript is:
 > **Analytical Controls for Dispersive Many-Body Interactions in
 > Mediator-Coupled Quantum Registers**
 
+## Repository entry points
+
+This repository has two complementary uses:
+
+- **Use Target-Aware DIAL on your own register:** provide a
+  configuration-resolved mediator transition spectrum and the desired
+  Pauli-\(Z\) interaction, and obtain a dispersively admissible
+  multi-tone control.
+- **Reproduce the paper:** use the frozen publication datasets,
+  benchmark scripts, plotting workflow, and manuscript contained in
+  this repository.
+
 ## Installation
 
 Python 3.10 or later is required.
@@ -24,6 +36,64 @@ pip install -e .
 ```
 
 The main numerical dependencies are NumPy, SciPy, Matplotlib, and Numba.
+
+## Use DIAL on your own register
+
+The public interface accepts either absolute or relative
+configuration-resolved mediator transition frequencies. For a
+three-spin register, for example:
+
+```python
+import numpy as np
+from dial import design_control
+
+spectrum = {
+    "000": 2876.9,
+    "001": 2868.5,
+    "010": 2873.1,
+    "011": 2864.7,
+    "100": 2875.3,
+    "101": 2866.9,
+    "110": 2871.5,
+    "111": 2863.1,
+}
+
+control = design_control(
+    spectrum,
+    target="Z1Z2Z3",
+    r_disp=0.10,
+)
+
+print(control.tones)
+print(control.amplitudes)
+print(control.target_rate)
+print(control.spectator_rates)
+print(control.gate_time(np.pi / 4))
+```
+
+The dictionary keys specify which mediator transition belongs to each
+computational-basis register configuration. An array can also be supplied,
+in binary integer order \(00\ldots0, 00\ldots1,\ldots,11\ldots1\).
+
+The returned tone frequencies use the same frequency coordinate as the
+supplied spectrum. Internally, DIAL removes an arbitrary common frequency
+reference before constructing the transfer matrix and restores it in the
+returned tones, so absolute and zero-centered spectra are equivalent.
+
+All frequencies and amplitudes must use one consistent convention and
+unit; the package does not insert or remove factors of \(2\pi\).
+
+The public solver accepts any nonidentity Pauli-\(Z\) string such as
+`Z1`, `Z1Z3`, or `Z1Z2Z3`. The present implementation evaluates both
+signs of the target rate under nonnegative tone intensities, as in the
+paper implementation. The realized sign is reported by
+`control.target_rate`.
+
+A complete runnable example is provided in:
+
+```text
+examples/design_from_spectrum.py
+```
 
 ## Reproducing the publication figures
 

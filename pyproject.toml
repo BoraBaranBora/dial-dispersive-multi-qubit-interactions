@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dial-control"
 version = "0.1.0"
-description = "Reproducibility code for dispersive interaction via analytical linear inversion (DIAL)"
+description = "Target-Aware DIAL control synthesis and publication reproducibility code"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
