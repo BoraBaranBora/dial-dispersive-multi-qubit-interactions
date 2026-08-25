@@ -24,6 +24,33 @@ from .transfer import transfer_matrix
 
 
 @dataclass(frozen=True)
+class DIALValidation:
+    """
+    Numerical aligned driven-RWA validation of a DIAL control.
+
+    This validation includes the complete multitone mediator dynamics
+    within the configuration-preserving RWA model. It does not include
+    basis misalignment, decoherence, relaxation, or counter-rotating
+    laboratory-frame terms.
+    """
+
+    phase: float
+    signed_target_phase: float
+
+    gate_time: float
+    max_rabi_frequency: float
+    max_rabi_period: float
+    gate_time_over_max_rabi_period: float
+
+    ground_manifold_fidelity: float
+
+    max_transient_mediator_excitation: float
+    terminal_mediator_excitation: float
+
+    n_steps: int
+
+
+@dataclass(frozen=True)
 class DIALControl:
     """
     Dispersive multi-tone control returned by Target-Aware DIAL.
@@ -53,6 +80,7 @@ class DIALControl:
     min_detuning: float
     min_tone_spacing: float
     r_disp: float
+    approx_mediator_excitation: float
 
     @property
     def target_rate(self) -> float:
@@ -117,6 +145,245 @@ class DIALControl:
             0.5
             * self.target_rate
             * float(time)
+        )
+
+    @property
+    def max_rabi_frequency(self) -> float:
+        """
+        Largest applied tone amplitude.
+
+        With the package convention, this is
+        ``Omega_max = max_k |Omega_k|``.
+        """
+        if len(self.amplitudes) == 0:
+            return 0.0
+
+        return float(
+            np.max(
+                np.abs(
+                    self.amplitudes
+                )
+            )
+        )
+
+    @property
+    def max_rabi_period(self) -> float:
+        """
+        Rabi period associated with the largest applied amplitude,
+
+            T_Rabi^max = 2 pi / Omega_max.
+        """
+        omega_max = (
+            self.max_rabi_frequency
+        )
+
+        if omega_max <= 0.0:
+            return float("inf")
+
+        return float(
+            2.0
+            * math.pi
+            / omega_max
+        )
+
+    def gate_time_over_max_rabi_period(
+        self,
+        phase: float = math.pi / 4.0,
+    ) -> float:
+        """
+        Gate time normalized by the fastest applied Rabi period,
+
+            T_gate / T_Rabi^max
+            = T_gate Omega_max / (2 pi).
+        """
+        return float(
+            self.gate_time(phase)
+            * self.max_rabi_frequency
+            / (
+                2.0
+                * math.pi
+            )
+        )
+
+    def validate_full_dynamics(
+        self,
+        phase: float = math.pi / 4.0,
+        *,
+        steps_per_period: int = 12,
+        max_steps: int = 20_000_000,
+    ) -> DIALValidation:
+        """
+        Numerically validate the control with aligned driven-RWA dynamics.
+
+        This propagates the complete multitone mediator dynamics for every
+        register configuration. It is the same physical validation model
+        used for the aligned benchmark in the accompanying paper.
+
+        The returned fidelity is the ground-manifold register process
+        fidelity. The transient mediator excitation is obtained directly
+        from the numerical propagation rather than from the dispersive
+        estimate.
+
+        This remains a model-based validation: basis mismatch, decoherence,
+        relaxation, and counter-rotating laboratory-frame terms are not
+        included.
+        """
+        if steps_per_period <= 0:
+            raise ValueError(
+                "steps_per_period must be positive."
+            )
+
+        if max_steps <= 0:
+            raise ValueError(
+                "max_steps must be positive."
+            )
+
+        from .dynamics import (
+            propagate_final_blocks_with_transient_flip_jit,
+        )
+        from .metrics import (
+            final_max_ground_to_excited_flip,
+            ground_manifold_register_fidelity,
+        )
+
+        T_gate = self.gate_time(
+            phase
+        )
+
+        offsets = (
+            np.asarray(
+                self.transition_frequencies,
+                dtype=float,
+            )
+            - self.reference_frequency
+        )
+
+        tones = (
+            np.asarray(
+                self.tones,
+                dtype=float,
+            )
+            - self.reference_frequency
+        )
+
+        intensities = np.asarray(
+            self.intensities,
+            dtype=float,
+        )
+
+        amplitudes = np.asarray(
+            self.amplitudes,
+            dtype=float,
+        )
+
+        max_detuning = float(
+            np.max(
+                np.abs(
+                    tones[:, None]
+                    - offsets[None, :]
+                )
+            )
+        )
+
+        max_rate = max(
+            max_detuning,
+            self.max_rabi_frequency,
+            1e-12,
+        )
+
+        n_steps = max(
+            1,
+            int(
+                math.ceil(
+                    T_gate
+                    * steps_per_period
+                    * max_rate
+                    / (
+                        2.0
+                        * math.pi
+                    )
+                )
+            ),
+        )
+
+        if n_steps > max_steps:
+            raise ValueError(
+                f"Full-dynamics validation requires "
+                f"n_steps={n_steps}, exceeding "
+                f"max_steps={max_steps}. Increase max_steps "
+                "explicitly rather than silently reducing "
+                "the integration resolution."
+            )
+
+        (
+            blocks,
+            max_transient_flip,
+        ) = (
+            propagate_final_blocks_with_transient_flip_jit(
+                offsets,
+                tones,
+                intensities,
+                T_gate,
+                n_steps,
+            )
+        )
+
+        signed_target_phase = float(
+            math.copysign(
+                abs(float(phase)),
+                self.target_rate,
+            )
+        )
+
+        fidelity = (
+            ground_manifold_register_fidelity(
+                blocks,
+                target_label=self.target,
+                signed_target_phase=(
+                    signed_target_phase
+                ),
+            )
+        )
+
+        terminal_excitation = (
+            final_max_ground_to_excited_flip(
+                blocks
+            )
+        )
+
+        return DIALValidation(
+            phase=float(
+                abs(phase)
+            ),
+            signed_target_phase=(
+                signed_target_phase
+            ),
+            gate_time=float(
+                T_gate
+            ),
+            max_rabi_frequency=float(
+                self.max_rabi_frequency
+            ),
+            max_rabi_period=float(
+                self.max_rabi_period
+            ),
+            gate_time_over_max_rabi_period=float(
+                self.gate_time_over_max_rabi_period(
+                    phase
+                )
+            ),
+            ground_manifold_fidelity=float(
+                fidelity
+            ),
+            max_transient_mediator_excitation=float(
+                max_transient_flip
+            ),
+            terminal_mediator_excitation=float(
+                terminal_excitation
+            ),
+            n_steps=int(
+                n_steps
+            ),
         )
 
 
@@ -371,7 +638,8 @@ def design_control(
     spectrum,
     *,
     target,
-    r_disp: float = 0.10,
+    r_disp: float | None = None,
+    approx_mediator_excitation: float | None = None,
     max_tones: int | None = None,
     min_detuning_fraction: float = 0.45,
     min_tone_spacing_fraction: float = 0.075,
@@ -404,7 +672,23 @@ def design_control(
 
     r_disp
         Maximum allowed dispersive ratio
-        ``max_k |Omega_k| / d_k``.
+        ``max_k |Omega_k| / d_k``. If neither ``r_disp`` nor
+        ``approx_mediator_excitation`` is supplied, the default is
+        ``r_disp=0.10``.
+
+    approx_mediator_excitation
+        Optional approximate mediator-excitation scale, supplied as a
+        probability between 0 and 1. For example, ``0.01`` means an
+        approximate 1% excitation scale. It is converted to a dispersive
+        ratio using the isolated detuned two-level estimate
+
+            P_max ~= r**2 / (1 + r**2),
+
+        where ``r = |Omega| / |Delta|``.
+
+        This is a convenient dispersive estimate, not a guarantee on the
+        maximum mediator population under a multitone control. Do not
+        supply this together with ``r_disp``.
 
     min_detuning_fraction
         Candidate tones are kept at least this fraction of the minimum
@@ -434,6 +718,40 @@ def design_control(
     ) = _coerce_spectrum(
         spectrum
     )
+
+    if (
+        r_disp is not None
+        and approx_mediator_excitation is not None
+    ):
+        raise ValueError(
+            "Specify either r_disp or approx_mediator_excitation, "
+            "not both."
+        )
+
+    if approx_mediator_excitation is not None:
+        p_approx = float(
+            approx_mediator_excitation
+        )
+
+        if not (
+            0.0 < p_approx < 1.0
+        ):
+            raise ValueError(
+                "approx_mediator_excitation must satisfy "
+                "0 < p < 1."
+            )
+
+        r_disp = math.sqrt(
+            p_approx
+            / (1.0 - p_approx)
+        )
+
+    elif r_disp is None:
+        # Preserve the original public-package default.
+        r_disp = 0.10
+
+    else:
+        r_disp = float(r_disp)
 
     if r_disp <= 0.0:
         raise ValueError(
@@ -693,6 +1011,25 @@ def design_control(
         / detunings
     )
 
+    max_dispersive_ratio = float(
+        np.max(
+            dispersive_ratios
+        )
+    )
+
+    # Isolated detuned two-level estimate.
+    #
+    # This is deliberately reported as an approximation:
+    # multitone interference can change the actual mediator
+    # population in the complete driven dynamics.
+    approx_excitation = float(
+        max_dispersive_ratio**2
+        / (
+            1.0
+            + max_dispersive_ratio**2
+        )
+    )
+
     absolute_tones = (
         selected_tones
         + reference_frequency
@@ -734,10 +1071,8 @@ def design_control(
         relative_residual=float(
             metrics["relative_residual"]
         ),
-        max_dispersive_ratio=float(
-            np.max(
-                dispersive_ratios
-            )
+        max_dispersive_ratio=(
+            max_dispersive_ratio
         ),
         min_detuning=(
             physical_min_detuning
@@ -746,4 +1081,7 @@ def design_control(
             min_tone_spacing
         ),
         r_disp=float(r_disp),
+        approx_mediator_excitation=(
+            approx_excitation
+        ),
     )

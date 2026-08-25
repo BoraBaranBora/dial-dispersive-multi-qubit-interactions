@@ -68,12 +68,70 @@ print(control.tones)
 print(control.amplitudes)
 print(control.target_rate)
 print(control.spectator_rates)
-print(control.gate_time(np.pi / 4))
+phase = np.pi / 4
+
+print(control.gate_time(phase))
+print(
+    control.gate_time_over_max_rabi_period(
+        phase
+    )
+)
+
+validation = control.validate_full_dynamics(
+    phase
+)
+
+print(validation.ground_manifold_fidelity)
+print(
+    validation.max_transient_mediator_excitation
+)
 ```
 
 The dictionary keys specify which mediator transition belongs to each
 computational-basis register configuration. An array can also be supplied,
 in binary integer order \(00\ldots0, 00\ldots1,\ldots,11\ldots1\).
+
+
+The control strength can be specified in two equivalent ways. Users who
+work directly with the dispersive approximation can set the maximum
+allowed ratio
+
+```python
+control = design_control(
+    spectrum,
+    target="Z1Z2Z3",
+    r_disp=0.10,
+)
+```
+
+Alternatively, a tolerated approximate mediator-excitation scale can be
+used:
+
+```python
+control = design_control(
+    spectrum,
+    target="Z1Z2Z3",
+    approx_mediator_excitation=0.01,
+)
+```
+
+Here `0.01` means an approximate 1% excitation scale. DIAL converts this
+using the isolated detuned two-level estimate
+
+\[
+P_{\mathrm{med}}^{\mathrm{approx}}
+=
+\frac{r_{\mathrm{disp}}^2}
+     {1+r_{\mathrm{disp}}^2}.
+\]
+
+This is a convenient estimate for choosing the dispersive drive scale;
+it is **not** a guarantee on the maximum mediator population under the
+complete multitone dynamics. The returned control reports both
+`control.max_dispersive_ratio` and
+`control.approx_mediator_excitation`. Obtaining the actual transient
+mediator population requires propagation of the complete driven
+mediator-register model.
 
 The returned tone frequencies use the same frequency coordinate as the
 supplied spectrum. Internally, DIAL removes an arbitrary common frequency
@@ -88,6 +146,32 @@ The public solver accepts any nonidentity Pauli-\(Z\) string such as
 signs of the target rate under nonnegative tone intensities, as in the
 paper implementation. The realized sign is reported by
 `control.target_rate`.
+
+
+The gate time is accompanied by the dimensionless quantity
+
+\[
+\frac{T_{\mathrm{gate}}}
+     {T_{\mathrm{Rabi}}^{\max}}
+=
+\frac{T_{\mathrm{gate}}\Omega_{\max}}
+     {2\pi},
+\]
+
+which measures the gate duration in units of the fastest Rabi period
+available in the designed control.
+
+The analytical design itself does not require numerical propagation.
+For users who want a model-based validation, the returned control provides
+`validate_full_dynamics()`. This propagates the complete multitone dynamics
+within the aligned, configuration-preserving rotating-wave model used for
+the paper benchmark and reports the ground-manifold register fidelity,
+maximum transient mediator excitation, terminal mediator excitation, and
+integration resolution.
+
+This numerical fidelity should not be interpreted as a complete device
+fidelity: decoherence, relaxation, basis mismatch, calibration errors, and
+counter-rotating laboratory-frame effects are not included.
 
 A complete runnable example is provided in:
 
