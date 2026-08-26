@@ -37,6 +37,18 @@ pip install -e .
 
 The main numerical dependencies are NumPy, SciPy, Matplotlib, and Numba.
 
+For reproduction of the publication numerics using the package versions
+used in this work, install the pinned environment first:
+
+```bash
+pip install -r requirements-publication.txt
+pip install -e .
+```
+
+The pinned file records the Python-package versions used for the
+publication calculations, while `pyproject.toml` keeps the general DIAL
+package dependencies flexible.
+
 ## Use DIAL on your own register
 
 The public interface accepts either absolute or relative

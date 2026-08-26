@@ -1,0 +1,7 @@
+# Python 3.11.15
+# Environment used for the publication numerics.
+
+numpy==2.4.6
+scipy==1.17.1
+matplotlib==3.11.1
+numba==0.66.0
