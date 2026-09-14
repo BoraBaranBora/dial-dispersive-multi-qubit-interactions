@@ -217,7 +217,7 @@ PNG versions are generated alongside the PDF files.
 `results/publication/main_benchmark.json`
 
 : Target-Aware DIAL synthesis and full driven-dynamics validation for
-  100 independently sampled register realizations at each
+  100 sampled register realizations at each
   n=2,3,4,5, targeting the highest-order interaction
   $Z_1\cdots Z_n$.
 
