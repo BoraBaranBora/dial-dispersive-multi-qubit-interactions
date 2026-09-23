@@ -1,18 +1,18 @@
-# DIAL: Dispersive Many-Body Interaction Synthesis
+# DIAL: Dispersive Multi-Qubit Interaction Synthesis
 
 This repository contains the numerical implementation and publication
 reproduction workflow for **dispersive interaction via analytical linear
 inversion (DIAL)**.
 
 DIAL constructs off-resonant multi-tone controls for engineering diagonal
-many-body interactions in mediator-coupled quantum registers. In the
+multi-qubit interactions in mediator-coupled quantum registers. In the
 configuration-preserving dispersive regime, the induced Pauli-Z interaction
 rates depend linearly on the tone intensities, allowing the control problem
 to be formulated as a constrained linear inversion.
 
 The accompanying manuscript is:
 
-> **Analytical Controls for Dispersive Many-Body Interactions in
+> **Analytical Controls for Dispersive Multi-Qubit Interactions in
 > Mediator-Coupled Quantum Registers**
 
 ## Repository entry points
