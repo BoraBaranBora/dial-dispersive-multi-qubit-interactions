@@ -58,10 +58,10 @@
   "figure_generation": {
     "command": "python scripts/reproduce_figures.py",
     "outputs": [
-      "manuscript/figures/main_direct_inversion_scaling.pdf",
-      "manuscript/figures/benchmark_ensemble_n3_normalized_spectral_space.pdf",
-      "manuscript/figures/scaling_relative_minimum_spacing.pdf",
-      "manuscript/figures/dial_misalignment_audit.pdf"
+      "figures/main_direct_inversion_scaling.pdf",
+      "figures/benchmark_ensemble_n3_normalized_spectral_space.pdf",
+      "figures/scaling_relative_minimum_spacing.pdf",
+      "figures/dial_misalignment_audit.pdf"
     ]
   },
   "optional_numerical_regeneration": {
