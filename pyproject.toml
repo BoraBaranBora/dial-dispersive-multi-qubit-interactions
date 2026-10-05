@@ -1,16 +1,21 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dialcontrol"
 version = "0.1.0"
-description = "Target-Aware DIAL control synthesis and publication reproducibility code"
+description = "Target-Aware DIAL control synthesis for dispersive multi-qubit interactions"
+readme = "README.md"
 requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Bora Baran" }
+]
 dependencies = [
     "numpy",
     "scipy",
-    "matplotlib",
     "numba",
 ]
 
@@ -18,6 +23,10 @@ dependencies = [
 test = [
     "pytest",
 ]
+
+[project.urls]
+Repository = "https://github.com/BoraBaranBora/dial-dispersive-multi-qubit-interactions"
+Paper = "https://arxiv.org/abs/2610.03064"
 
 [tool.setuptools.packages.find]
 where = ["src"]
