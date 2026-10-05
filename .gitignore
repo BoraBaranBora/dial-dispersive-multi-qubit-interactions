@@ -42,3 +42,6 @@ manuscript/manuscriptNotes.bib
 *.key
 credentials.json
 secrets.json
+
+manuscript/
+dist/

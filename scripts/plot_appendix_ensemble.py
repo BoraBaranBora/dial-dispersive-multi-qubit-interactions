@@ -33,7 +33,7 @@ def main():
     parser.add_argument(
         "--outdir",
         type=Path,
-        default=Path("manuscript/figures"),
+        default=Path("figures"),
     )
 
     args = parser.parse_args()
