@@ -42,7 +42,7 @@ For reproduction of the publication numerics using the package versions
 used in this work, install the pinned environment first:
 
 ```bash
-pip install -r requirements-publication.txt
+pip install -r requirements.txt
 pip install -e .
 ```
 
