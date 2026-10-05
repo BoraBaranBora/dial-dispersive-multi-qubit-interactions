@@ -7,9 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
-from dial.dynamics import simulate_case
-from dial.io import atomic_write_json
-from dial.metrics import (
+from dialcontrol.dynamics import simulate_case
+from dialcontrol.io import atomic_write_json
+from dialcontrol.metrics import (
     ground_manifold_fidelity,
     maximum_mediator_excitation,
 )

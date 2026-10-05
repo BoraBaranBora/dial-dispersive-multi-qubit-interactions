@@ -58,7 +58,7 @@ three-spin register, for example:
 
 ```python
 import numpy as np
-from dial import design_control
+from dialcontrol import design_control
 
 spectrum = {
     "000": 2876.9,
@@ -266,7 +266,7 @@ publication data are not overwritten.
 
 ## Scientific core
 
-The reusable implementation is under `src/dial/`:
+The reusable implementation is under `src/dialcontrol/`:
 
 ```text
 basis.py       computational-basis and Pauli-Z bookkeeping

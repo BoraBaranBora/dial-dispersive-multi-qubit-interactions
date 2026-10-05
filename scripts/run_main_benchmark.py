@@ -6,18 +6,18 @@ from pathlib import Path
 
 import numpy as np
 
-from dial.dynamics import (
+from dialcontrol.dynamics import (
     conservative_n_steps,
     propagate_final_blocks_jit,
 )
-from dial.io import atomic_write_json
-from dial.metrics import (
+from dialcontrol.io import atomic_write_json
+from dialcontrol.metrics import (
     final_max_ground_to_excited_flip,
     ground_manifold_register_fidelity,
 )
-from dial.sampling import sample_realizations
-from dial.spectrum import mean_transition_spacing
-from dial.synthesis import (
+from dialcontrol.sampling import sample_realizations
+from dialcontrol.spectrum import mean_transition_spacing
+from dialcontrol.synthesis import (
     dispersive_scale_from_unit_control,
     finite_tone_control_inversion_n,
 )

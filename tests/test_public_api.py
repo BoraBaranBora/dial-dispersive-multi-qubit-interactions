@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from dial import design_control
+from dialcontrol import design_control
 
 
 ROOT = Path(__file__).resolve().parents[1]

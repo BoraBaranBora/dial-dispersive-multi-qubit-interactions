@@ -7,11 +7,11 @@ from pathlib import Path
 
 import numpy as np
 
-from dial.dynamics import (
+from dialcontrol.dynamics import (
     propagate_final_blocks_with_transient_flip_jit,
 )
-from dial.io import atomic_write_json
-from dial.metrics import (
+from dialcontrol.io import atomic_write_json
+from dialcontrol.metrics import (
     final_max_ground_to_excited_flip,
     ground_manifold_register_fidelity,
 )

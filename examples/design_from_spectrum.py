@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from dial import design_control
+from dialcontrol import design_control
 
 
 # Example three-spin register-resolved mediator transition spectrum.
